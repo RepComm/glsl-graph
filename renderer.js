@@ -80,7 +80,7 @@ export function renderer(ui) {
   function createNodeConnection(input) {
     console.log("creating node connection");
     let result = new Connection();
-    result.i = input;
+    result.setNode(input, input.getRandomPort("input"), "input");
     addConnection(result);
     return result;
   }
@@ -242,7 +242,7 @@ export function renderer(ui) {
         currentNodeConnection = null;
         return;
       }
-      currentNodeConnection.o = end;
+      currentNodeConnection.setNode(end, end.getRandomPort("output"), "output");
     }
   });
   let updatesPerSecond = 15;

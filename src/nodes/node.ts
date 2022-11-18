@@ -1,4 +1,4 @@
-import { Object2D, Vec2 } from "@repcomm/scenario2d";
+import { lerp, Object2D, Vec2 } from "@repcomm/scenario2d";
 
 export interface NodeConfig {
   tooltip: string;
@@ -16,6 +16,8 @@ export function diff (a: number, b: number) {
   return max - min;
 }
 
+export type ConnectionType = "input"|"output";
+
 export class Node extends Object2D {
   get TITLE(): string {
     return "Node";
@@ -25,6 +27,23 @@ export class Node extends Object2D {
   }
   get FG (): string {
     return "#ffffff";
+  }
+
+  inputPorts: string[];
+  outputPorts: string[];
+
+  lookupPort(id: string|number, type: ConnectionType): number {
+    if (typeof id === "number") return id;
+    if (type === "input") {
+      return this.inputPorts.indexOf(id);
+    } else {
+      return this.outputPorts.indexOf(id);
+    }
+  }
+
+  getRandomPort (type: ConnectionType) {
+    if (type === "input") return Math.floor(Math.random()*this.inputPorts.length);
+    else return Math.floor(Math.random()*this.outputPorts.length);
   }
 
   isSelected: boolean;
@@ -42,6 +61,9 @@ export class Node extends Object2D {
     this.center = new Vec2().set(10,10);
     this.padding = 20;
     this.isSelected = false;
+
+    this.inputPorts = ["a", "b", "c"];
+    this.outputPorts = ["1", "2", "3"];
   }
   
   get needsMeasureTitle (): boolean {
@@ -68,20 +90,41 @@ export class Node extends Object2D {
     ctx.fillText(
       this.TITLE,
       this.center.x -this.titleTextMetrics.halfWidth,
-      this.center.y + this.titleTextMetrics.halfHeight
+      this.titleTextMetrics.halfHeight
     );
   }
-
+  getPortOffset (port: number, type: ConnectionType) {
+    let len = type === "input" ? this.inputPorts.length : this.outputPorts.length;
+    return this.padding + lerp(0, this.titleTextMetrics.height*len*2, port/len);
+  }
   onRenderSelf(ctx: CanvasRenderingContext2D): this {
     if (this.needsMeasureTitle) this.measureTitle(ctx);
 
+    let max = Math.max(this.inputPorts.length, this.outputPorts.length);
+
     this.size.set(
-      this.titleTextMetrics.width + this.padding*2, this.titleTextMetrics.height + this.padding*2
+      this.titleTextMetrics.width + this.padding*2,
+      
+      (this.titleTextMetrics.height * max) + this.padding*2
     );
     this.center.copy(this.size).mulScalar(0.5);
 
     ctx.fillStyle = this.BG;
     ctx.fillRect(0, 0, this.size.x, this.size.y);
+
+    let text: string;
+
+    ctx.fillStyle = this.FG;
+    for (let i=0; i<this.inputPorts.length; i++) {
+      text = this.inputPorts[i];
+      ctx.fillText(text, 0, this.getPortOffset(i, "input"));
+    }
+    for (let i=0; i<this.outputPorts.length; i++) {
+      text = this.outputPorts[i];
+      let width = ctx.measureText(text).width;
+
+      ctx.fillText(text, this.size.x - width, this.getPortOffset(i, "output"));
+    }
 
     if (this.isSelected) {
       ctx.strokeStyle = this.FG;
@@ -115,7 +158,24 @@ export class Node extends Object2D {
 
 export class Connection extends Object2D {
   i: Node;
+  ip: number;
+
   o: Node;
+  op: number;
+
+  setNode (node: Node, port: number|string, type: ConnectionType) {
+    if (type === "input") {
+      this.i = node;
+    } else {
+      this.o = node;
+    }
+
+    if (node) {
+      port = node.lookupPort(port, type);
+      if (type === "input") this.ip = port;
+      else this.op = port;
+    }
+  }
 
   floatingEndpoint: Vec2;
 
@@ -141,8 +201,9 @@ export class Connection extends Object2D {
     let dist = this.ox - this.ix;
     if (dist < 0) dist = 0;
 
-    let ihh = this.i.size.y/2;
-    let ohh = this.o?.size.y/2||0;
+    let ihh = this.i.getPortOffset(this.ip, "input");
+    let ohh = 0;
+    if (this.o) ohh = this.o.getPortOffset(this.op, "output");
 
     ctx.beginPath();
     ctx.strokeStyle = "white";

@@ -109,7 +109,7 @@ export function renderer(ui: UIBuilder): Renderer {
   function createNodeConnection(input: Node) {
     console.log("creating node connection");
     let result = new Connection();
-    result.i = input;
+    result.setNode(input, input.getRandomPort("input"), "input");
 
     addConnection(result);
 
@@ -296,7 +296,7 @@ export function renderer(ui: UIBuilder): Renderer {
         return;
       }
 
-      currentNodeConnection.o = end;
+      currentNodeConnection.setNode(end, end.getRandomPort("output"), "output");
     }
   })
 

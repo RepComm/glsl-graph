@@ -1,19 +1,24 @@
-# ts-map-babel-template
+# glsl-graph
 
-A template setup for:
-- TypeScript ( using [babel](https://github.com/babel/babel) )
-- import maps ( including [this polyfill](https://github.com/guybedford/es-module-shims) )
-- And also optionally [show-casing @roguecircuitry/htmless](https://github.com/RogueCircuitry/htmless)
+Attempting to make a node based GLSL editor
 
-## Function
+Also an exercise at making a not terrible node editor
 
-Compile /src directory with:
-`npm run build`
-<br/>
-File copy is set up as well for:
-`src/index.ts` -> `./index.js`<br/>
-`src/index.html` -> `./index.html`
+I like using blender a lot, so this will probably mimick blender's Shader Nodes editor for the most part input-wise.
 
-Output is in the same directory as package.json for sake of import maps
+![img](./example.png)
 
-I regularly use this for starting new projects of my own, and therefor it should stay somewhat up-to-date.
+## Implemented
+- Node rendering
+- Connection rendering
+- Dynamic input/output ports
+- Input:
+  - G : Grab (move) similar to blender
+  - B : Box Select (similar to blender)
+  - Click (+Shift) : Select (similar to blender)
+  - C : Start Connect (not final, debugging purposes, hover over a node then press C, then click on another node)
+- Box Selection
+- Click selection
+- Multi selection with Shift
+- A ModeHandler to handle different states of editing
+

@@ -55,6 +55,7 @@ export function renderer(ui) {
   //create a scene root object
   let scene = new Object2D();
   let nodes = new Set();
+  let lastSelectedNode;
   function addNode(n) {
     nodes.add(n);
     scene.add(n);
@@ -70,11 +71,14 @@ export function renderer(ui) {
   }
   let mousePos = new Vec2();
   function selectNodes(p, deselectNonContacts = true) {
-    let alreadySelectedOne = false;
+    let oneNodeSelected = false;
     for (let node of nodes) {
-      if (node.containsPoint(p) && !alreadySelectedOne && !node.isSelected) {
+      if (node.containsPoint(p)) {
+        if (oneNodeSelected && deselectNonContacts) {
+          continue;
+        }
         node.isSelected = !node.isSelected;
-        alreadySelectedOne = true;
+        oneNodeSelected = true;
       } else if (deselectNonContacts) {
         node.isSelected = false;
       }
@@ -98,6 +102,11 @@ export function renderer(ui) {
       influences: [{
         keys: ["b"]
       }]
+    }, {
+      id: "delete-node",
+      influences: [{
+        keys: ["x"]
+      }]
     }],
     axes: [{
       id: "move-x",
@@ -118,6 +127,7 @@ export function renderer(ui) {
   });
   let grabDebounce = new Debounce();
   let createDebounce = new Debounce(200);
+  let deleteDebounce = new Debounce(200);
   let boxDebounce = new Debounce(100);
   let moveVector = new Vec2();
   let boxStart = new Vec2();
@@ -175,12 +185,27 @@ export function renderer(ui) {
   setInterval(() => {
     modeHandler.update();
     if (input.getButtonValue("grab-node") && grabDebounce.update()) modeHandler.switch("grabbing");
-    if (input.getButtonValue("create-node") && createDebounce.update()) createNode().localTransform.position.copy(mousePos);
+    if (modeHandler.currentMode.id === "idle") {
+      if (input.getButtonValue("create-node") && createDebounce.update()) {
+        createNode().localTransform.position.copy(mousePos);
+      } else if (input.getButtonValue("delete-node") && deleteDebounce.update()) {
+        let toDelete = new Set();
+        for (let node of nodes) {
+          toDelete.add(node);
+        }
+        for (let node of toDelete) {
+          removeNode(node);
+        }
+      }
+    }
     if (input.getButtonValue("box-select") && boxDebounce.update()) modeHandler.switch("box-selecting");
   }, 1000 / updatesPerSecond);
   ui.on("click", evt => {
-    selectNodes(mousePos, !evt.shiftKey && modeHandler.currentMode.id === "idle");
-    modeHandler.switch("idle");
+    if (modeHandler.currentMode.id === "idle") {
+      selectNodes(mousePos, !evt.shiftKey);
+    } else {
+      modeHandler.switch("idle");
+    }
   });
 
   //create a callback for requestAnimationFrame

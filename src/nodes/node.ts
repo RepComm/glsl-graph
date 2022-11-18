@@ -112,3 +112,51 @@ export class Node extends Object2D {
     );
   }
 }
+
+export class Connection extends Object2D {
+  i: Node;
+  o: Node;
+
+  floatingEndpoint: Vec2;
+
+  get ix (): number {
+    return this.i.right;
+  }
+  get iy (): number {
+    return this.i.top;
+  }
+  get ox (): number {
+    return this.o?.left || this.floatingEndpoint.x;
+  }
+  get oy (): number {
+    return this.o?.top || this.floatingEndpoint.y;
+  }
+
+  constructor () {
+    super();
+    this.floatingEndpoint = new Vec2();
+  }
+
+  onRenderSelf(ctx: CanvasRenderingContext2D): this {
+    let dist = this.ox - this.ix;
+    if (dist < 0) dist = 0;
+
+    let ihh = this.i.size.y/2;
+    let ohh = this.o?.size.y/2||0;
+
+    ctx.beginPath();
+    ctx.strokeStyle = "white";
+    ctx.moveTo(this.ix, this.iy + ihh);
+
+    ctx.bezierCurveTo(
+      this.ix + dist/2, 
+      this.iy + ihh,
+      this.ox - dist/2,
+      this.oy + ohh,
+      this.ox, this.oy + ohh
+    );
+    ctx.stroke();
+
+    return this;
+  }
+}

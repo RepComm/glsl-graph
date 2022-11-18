@@ -70,3 +70,36 @@ export class Node extends Object2D {
     return p.x > this.left && p.x < this.right && p.y > this.top && p.y < this.bottom;
   }
 }
+export class Connection extends Object2D {
+  get ix() {
+    return this.i.right;
+  }
+  get iy() {
+    return this.i.top;
+  }
+  get ox() {
+    var _this$o;
+    return ((_this$o = this.o) === null || _this$o === void 0 ? void 0 : _this$o.left) || this.floatingEndpoint.x;
+  }
+  get oy() {
+    var _this$o2;
+    return ((_this$o2 = this.o) === null || _this$o2 === void 0 ? void 0 : _this$o2.top) || this.floatingEndpoint.y;
+  }
+  constructor() {
+    super();
+    this.floatingEndpoint = new Vec2();
+  }
+  onRenderSelf(ctx) {
+    var _this$o3;
+    let dist = this.ox - this.ix;
+    if (dist < 0) dist = 0;
+    let ihh = this.i.size.y / 2;
+    let ohh = ((_this$o3 = this.o) === null || _this$o3 === void 0 ? void 0 : _this$o3.size.y) / 2 || 0;
+    ctx.beginPath();
+    ctx.strokeStyle = "white";
+    ctx.moveTo(this.ix, this.iy + ihh);
+    ctx.bezierCurveTo(this.ix + dist / 2, this.iy + ihh, this.ox - dist / 2, this.oy + ohh, this.ox, this.oy + ohh);
+    ctx.stroke();
+    return this;
+  }
+}

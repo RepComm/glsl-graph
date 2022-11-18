@@ -2,7 +2,7 @@ import { GameInput } from "@repcomm/gameinput-ts";
 import { Object2D, Vec2 } from "@repcomm/scenario2d";
 import { aabb } from "./aabb.js";
 import { Debounce } from "./debounce.js";
-import { Node } from "./nodes/node.js";
+import { Connection, Node } from "./nodes/node.js";
 export class ModeHandler {
   constructor() {
     this.modes = new Map();
@@ -20,11 +20,11 @@ export class ModeHandler {
       if (id === idm) return mode;
     }
   }
-  switch(id) {
+  switch(id, cancel = false) {
     let previousMode = this.currentMode;
     this.currentMode = null;
     let nextMode = this.find(id);
-    if (previousMode && previousMode.onEnd) previousMode.onEnd(nextMode.id);
+    if (previousMode && previousMode.onEnd && !cancel) previousMode.onEnd(nextMode.id);
     this.currentMode = nextMode;
     if (nextMode && nextMode.onStart) nextMode.onStart(previousMode.id);
     return this;
@@ -55,7 +55,7 @@ export function renderer(ui) {
   //create a scene root object
   let scene = new Object2D();
   let nodes = new Set();
-  let lastSelectedNode;
+  let nodeConnections = new Set();
   function addNode(n) {
     nodes.add(n);
     scene.add(n);
@@ -69,7 +69,29 @@ export function renderer(ui) {
     addNode(result);
     return result;
   }
+  function addConnection(c) {
+    nodeConnections.add(c);
+    scene.add(c);
+  }
+  function removeConnection(c) {
+    nodeConnections.delete(c);
+    scene.remove(c);
+  }
+  function createNodeConnection(input) {
+    console.log("creating node connection");
+    let result = new Connection();
+    result.i = input;
+    addConnection(result);
+    return result;
+  }
   let mousePos = new Vec2();
+  function getNode(p) {
+    for (let node of nodes) {
+      if (node.containsPoint(p)) {
+        return node;
+      }
+    }
+  }
   function selectNodes(p, deselectNonContacts = true) {
     let oneNodeSelected = false;
     for (let node of nodes) {
@@ -107,6 +129,11 @@ export function renderer(ui) {
       influences: [{
         keys: ["x"]
       }]
+    }, {
+      id: "connect",
+      influences: [{
+        keys: ["c"]
+      }]
     }],
     axes: [{
       id: "move-x",
@@ -128,11 +155,25 @@ export function renderer(ui) {
   let grabDebounce = new Debounce();
   let createDebounce = new Debounce(200);
   let deleteDebounce = new Debounce(200);
+  let connectDebounce = new Debounce(200);
   let boxDebounce = new Debounce(100);
   let moveVector = new Vec2();
   let boxStart = new Vec2();
   let boxEnd = new Vec2();
   let boxSize = new Vec2();
+  let currentNodeConnection;
+  function getFirstNode() {
+    for (let node of nodes) {
+      return node;
+    }
+  }
+  function getLastNode() {
+    let result;
+    for (let node of nodes) {
+      result = node;
+    }
+    return result;
+  }
   let modeHandler = new ModeHandler();
   modeHandler.add({
     id: "grabbing",
@@ -181,6 +222,29 @@ export function renderer(ui) {
   modeHandler.add({
     id: "idle"
   });
+  modeHandler.add({
+    id: "connect",
+    onStart() {
+      let start = getNode(mousePos);
+      if (!start) {
+        modeHandler.switch("idle", true);
+        return;
+      }
+      currentNodeConnection = createNodeConnection(start);
+    },
+    onUpdate() {
+      currentNodeConnection.floatingEndpoint.copy(mousePos);
+    },
+    onEnd() {
+      let end = getNode(mousePos);
+      if (!end) {
+        removeConnection(currentNodeConnection);
+        currentNodeConnection = null;
+        return;
+      }
+      currentNodeConnection.o = end;
+    }
+  });
   let updatesPerSecond = 15;
   setInterval(() => {
     modeHandler.update();
@@ -199,6 +263,7 @@ export function renderer(ui) {
       }
     }
     if (input.getButtonValue("box-select") && boxDebounce.update()) modeHandler.switch("box-selecting");
+    if (input.getButtonValue("connect") && connectDebounce.update()) modeHandler.switch("connect");
   }, 1000 / updatesPerSecond);
   ui.on("click", evt => {
     if (modeHandler.currentMode.id === "idle") {

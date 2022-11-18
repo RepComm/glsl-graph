@@ -4,7 +4,7 @@ import { Object2D, Vec2 } from "@repcomm/scenario2d";
 import { UIBuilder } from "@roguecircuitry/htmless";
 import { aabb } from "./aabb.js";
 import { Debounce } from "./debounce.js";
-import { Node } from "./nodes/node.js";
+import { Connection, Node } from "./nodes/node.js";
 
 export interface Renderer {
   canvas: HTMLCanvasElement;
@@ -41,12 +41,12 @@ export class ModeHandler {
       if (id === idm) return mode;
     }
   }
-  switch(id: string): this {
+  switch(id: string, cancel: boolean = false): this {
     let previousMode = this.currentMode;
     this.currentMode = null;
     let nextMode = this.find(id);
 
-    if (previousMode && previousMode.onEnd) previousMode.onEnd(nextMode.id);
+    if (previousMode && previousMode.onEnd && !cancel) previousMode.onEnd(nextMode.id);
     this.currentMode = nextMode;
     if (nextMode && nextMode.onStart) nextMode.onStart(previousMode.id);
     return this;
@@ -81,7 +81,7 @@ export function renderer(ui: UIBuilder): Renderer {
   let scene = new Object2D();
 
   let nodes = new Set<Node>();
-  let lastSelectedNode: Node;
+  let nodeConnections = new Set<Connection>();
 
   function addNode(n: Node) {
     nodes.add(n);
@@ -98,8 +98,33 @@ export function renderer(ui: UIBuilder): Renderer {
 
     return result;
   }
+  function addConnection(c: Connection) {
+    nodeConnections.add(c);
+    scene.add(c);
+  }
+  function removeConnection(c: Connection) {
+    nodeConnections.delete(c);
+    scene.remove(c);
+  }
+  function createNodeConnection(input: Node) {
+    console.log("creating node connection");
+    let result = new Connection();
+    result.i = input;
+
+    addConnection(result);
+
+    return result;
+  }
 
   let mousePos = new Vec2();
+
+  function getNode (p: Vec2) {
+    for (let node of nodes) {
+      if (node.containsPoint(p)) {
+        return node;
+      }
+    }
+  }
 
   function selectNodes(p: Vec2, deselectNonContacts: boolean = true) {
     let oneNodeSelected = false;
@@ -109,7 +134,7 @@ export function renderer(ui: UIBuilder): Renderer {
         if (oneNodeSelected && deselectNonContacts) {
           continue;
         }
-        
+
         node.isSelected = !node.isSelected;
         oneNodeSelected = true;
       } else if (deselectNonContacts) {
@@ -142,6 +167,11 @@ export function renderer(ui: UIBuilder): Renderer {
         influences: [{
           keys: ["x"],
         }]
+      }, {
+        id: "connect",
+        influences: [{
+          keys: ["c"]
+        }]
       }
     ],
     axes: [{
@@ -166,7 +196,7 @@ export function renderer(ui: UIBuilder): Renderer {
   let grabDebounce = new Debounce();
   let createDebounce = new Debounce(200);
   let deleteDebounce = new Debounce(200);
-
+  let connectDebounce = new Debounce(200);
   let boxDebounce = new Debounce(100);
 
   let moveVector = new Vec2();
@@ -174,6 +204,21 @@ export function renderer(ui: UIBuilder): Renderer {
   let boxStart = new Vec2();
   let boxEnd = new Vec2();
   let boxSize = new Vec2();
+
+  let currentNodeConnection: Connection;
+
+  function getFirstNode() {
+    for (let node of nodes) {
+      return node;
+    }
+  }
+  function getLastNode() {
+    let result: Node;
+    for (let node of nodes) {
+      result = node;
+    }
+    return result;
+  }
 
   let modeHandler = new ModeHandler();
   modeHandler.add({
@@ -228,6 +273,32 @@ export function renderer(ui: UIBuilder): Renderer {
   modeHandler.add({
     id: "idle"
   });
+  modeHandler.add({
+    id: "connect",
+    onStart() {
+      let start = getNode(mousePos);
+      if (!start) {
+        modeHandler.switch("idle", true);
+        return;
+      }
+
+      currentNodeConnection = createNodeConnection(start);
+
+    },
+    onUpdate() {
+      currentNodeConnection.floatingEndpoint.copy(mousePos);
+    },
+    onEnd() {
+      let end = getNode(mousePos);
+      if (!end) {
+        removeConnection(currentNodeConnection);
+        currentNodeConnection = null;
+        return;
+      }
+
+      currentNodeConnection.o = end;
+    }
+  })
 
   let updatesPerSecond = 15;
   setInterval(() => {
@@ -251,6 +322,8 @@ export function renderer(ui: UIBuilder): Renderer {
     }
 
     if (input.getButtonValue("box-select") && boxDebounce.update()) modeHandler.switch("box-selecting");
+
+    if (input.getButtonValue("connect") && connectDebounce.update()) modeHandler.switch("connect");
 
   }, 1000 / updatesPerSecond);
 

@@ -32,6 +32,8 @@
     "publish": "npm publish --access public"
   },
   "dependencies": {
-    "@roguecircuitry/htmless": "https://github.com/RogueCircuitry/htmless"
+    "@repcomm/gameinput-ts": "^1.10.4",
+    "@repcomm/scenario2d": "^2.0.3",
+    "@roguecircuitry/htmless": "github:RogueCircuitry/htmless"
   }
 }
